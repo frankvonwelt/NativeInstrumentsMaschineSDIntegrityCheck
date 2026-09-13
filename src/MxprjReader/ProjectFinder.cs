@@ -26,6 +26,12 @@ public static class ProjectFinder
 
             foreach (var filePath in Directory.GetFiles(projectsFolder, "*.mxprj", SearchOption.AllDirectories))
             {
+                if (Path.GetFileName(filePath).StartsWith('.'))
+                {
+                    // macOS AppleDouble temp files, e.g. "._SomeProject.mxprj" - not real projects.
+                    continue;
+                }
+
                 yield return (filePath, version);
             }
         }

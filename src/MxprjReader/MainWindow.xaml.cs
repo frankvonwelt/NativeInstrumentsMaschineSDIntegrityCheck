@@ -8,6 +8,11 @@ public partial class MainWindow : Window
 {
     private List<ScannedProject> _results = [];
 
+    private sealed record DriveItem(string RootPath, string DisplayText)
+    {
+        public override string ToString() => DisplayText;
+    }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -20,7 +25,7 @@ public partial class MainWindow : Window
     {
         var drives = DriveInfo.GetDrives()
             .Where(d => d.DriveType == DriveType.Removable && d.IsReady)
-            .Select(d => d.Name)
+            .Select(d => new DriveItem(d.Name, BuildDriveDisplayText(d)))
             .ToList();
 
         DriveComboBox.ItemsSource = drives;
@@ -32,9 +37,23 @@ public partial class MainWindow : Window
         StatusTextBlock.Text = drives.Count == 0 ? "No removable drives found." : "";
     }
 
+    private static string BuildDriveDisplayText(DriveInfo drive)
+    {
+        string? label = null;
+        try
+        {
+            label = drive.VolumeLabel;
+        }
+        catch (IOException)
+        {
+        }
+
+        return string.IsNullOrWhiteSpace(label) ? drive.Name : $"{drive.Name} ({label})";
+    }
+
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
-        if (DriveComboBox.SelectedItem is not string driveRoot)
+        if (DriveComboBox.SelectedItem is not DriveItem selectedDrive)
         {
             MessageBox.Show(this, "Select a drive first.", "No drive selected", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
@@ -47,7 +66,7 @@ public partial class MainWindow : Window
 
         try
         {
-            _results = await Task.Run(() => ProjectFinder.FindProjects(driveRoot)
+            _results = await Task.Run(() => ProjectFinder.FindProjects(selectedDrive.RootPath)
                 .Select(p => ScannedProject.Analyze(p.FilePath, p.Version))
                 .ToList());
 
